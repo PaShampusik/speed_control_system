@@ -1,0 +1,46 @@
+{
+    "2024-05-24": [
+        {
+            "datetime": "2024-05-24 14:31:25",
+            "plate_number": "1234 PP-7",
+            "speed_kmph": 76.5
+        },
+        {
+            "datetime": "2024-05-24 14:31:25",
+            "plate_number": "1234 PP-7",
+            "speed_kmph": 45.5
+        },
+        {
+            "datetime": "2024-05-24 14:31:25",
+            "plate_number": "1234 PP-7",
+            "speed_kmph": 55.5
+        }
+    ],
+    "2024-05-25": [
+        {
+            "datetime": "2024-05-25 14:31:25",
+            "plate_number": "1234 PP-7",
+            "speed_kmph": 55.5
+        },
+        {
+            "datetime": "2024-05-25 14:31:25",
+            "plate_number": "1234 PP-7",
+            "speed_kmph": 155.5
+        },
+        {
+            "datetime": "2024-05-25 14:31:25",
+            "plate_number": "1234 PP-7",
+            "speed_kmph": 155.5
+        },
+        {
+            "datetime": "2024-05-25 14:31:25",
+            "plate_number": "1234 PP-7",
+            "speed_kmph": 155.5
+        },
+        {
+            "datetime": "2024-05-25 14:31:25",
+            "plate_number": "1234 PP-7",
+            "speed_kmph": 175.5
+        }
+    ]
+}
