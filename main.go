@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math"
 	"net/http"
 	"os"
@@ -49,7 +50,7 @@ func main() {
 	http.ListenAndServe(":8080", nil)
 }
 
-// PUT handler 
+// PUT handler
 // Invoke-WebRequest -Method PUT -Headers @{"Content-Type"="application/json"} -Body '{"datetime": "2024-05-25 14:31:25", "plate_number": "1234 PP-7", "speed_kmph": 155.5}' http://localhost:8080/receive
 func receiveHandler(w http.ResponseWriter, r *http.Request) {
 	// Парсим тело запроса
@@ -60,52 +61,22 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Создаем карту для хранения данных
-	dataMap := make(map[string][]SpeedData)
+	// Добавляем новые данные в файл
+	filename := fmt.Sprintf("%s/data.txt", dataDirectory)
 
-	// Загружаем существующие данные из файла, если он существует
-	filename := fmt.Sprintf("%s/data.json", dataDirectory)
-	if _, err := os.Stat(filename); err == nil {
-		// Файл существует, загружаем данные
-		file, err := os.Open(filename)
+	// Проверяем, существует ли файл, иначе создаем его
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		err = os.WriteFile(filename, []byte{}, 0644)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer file.Close()
-
-		err = json.NewDecoder(file).Decode(&dataMap)
-		if err != nil {
-			// Проверяем, является ли ошибка io.EOF
-			if errors.Is(err, io.EOF) {
-				// Инициализируем dataMap как пустую карту
-				dataMap = make(map[string][]SpeedData)
-			} else {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		}
-	} else if !os.IsNotExist(err) {
-		// Произошла ошибка при проверке существования файла
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
 
-	// Добавляем новые данные в карту
-	date := data.DateTime[:10]
-	if _, ok := dataMap[date]; !ok {
-		// Создаем вложенность для конкретной даты
-		dataMap[date] = make([]SpeedData, 1)
-	}
-	dataMap[date] = append(dataMap[date], data)
-
-	// Сохраняем данные в файл
-	jsonData, err := json.Marshal(dataMap)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	err = os.WriteFile(filename, jsonData, 0644)
+	// Открываем файл с флагом os.O_APPEND для того, чтобы не перезаписывать данные
+	file, _ := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0644)
+	str := fmt.Sprintf("%s %s %f\n", data.DateTime, data.NumberPlate, data.SpeedKmph)
+	_, err = file.Write([]byte(str))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -136,26 +107,25 @@ func queryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Загружаем существующие данные из файла
-	filename := fmt.Sprintf("%s/data.json", dataDirectory)
-	var dataMap map[string][]SpeedData
-	if _, err := os.Stat(filename); err == nil {
-		// Файл существует, загружаем данные
-		file, err := os.Open(filename)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer file.Close()
-
-		err = json.NewDecoder(file).Decode(&dataMap)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	} else if !os.IsNotExist(err) {
-		// Произошла ошибка при проверке существования файла
+	filename := fmt.Sprintf("%s/data.txt", dataDirectory)
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// Преобразуем данные из JSON в карту
+	var dataMap map[string][]SpeedData
+	err = json.Unmarshal(data, &dataMap)
+	if err != nil {
+		// Проверяем, является ли ошибка io.EOF
+		if errors.Is(err, io.EOF) {
+			// Инициализируем dataMap как пустую карту
+			dataMap = make(map[string][]SpeedData)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Ищем данные по запросу
