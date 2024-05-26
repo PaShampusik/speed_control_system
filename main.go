@@ -41,15 +41,42 @@ var dataDirectory = "data"
 var accessStartTime time.Time
 var accessEndTime time.Time
 
-// //
 var offset_map map[string]int64
 
-////
-
 func main() {
+
 	// Парсим время работы машины
-	accessStartTime, _ = time.Parse("15:04:05", "00:00:00")
-	accessEndTime, _ = time.Parse("15:04:05", "23:59:00")
+	file, err := os.Open("config.txt")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := strings.SplitN(scanner.Text(), "=", 2)
+		if len(line) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(line[0])
+		value := strings.TrimSpace(line[1])
+		switch key {
+		case "start_time":
+			accessStartTime, err = time.Parse("15:04", value)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		case "end_time":
+			accessEndTime, err = time.Parse("15:04", value)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}
+	}
 
 	// Создание папки данных, если она отсутсвтует
 	if _, err := os.Stat(dataDirectory); os.IsNotExist(err) {
@@ -58,19 +85,19 @@ func main() {
 
 	// Открываем файл
 	filename := fmt.Sprintf("%s/map.txt", dataDirectory)
-	file, err := os.Open(filename)
+	file2, err := os.Open(filename)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	defer file.Close()
+	defer file2.Close()
 
 	// Создаем сканер для чтения файла строка за строкой
-	scanner := bufio.NewScanner(file)
+	scanner2 := bufio.NewScanner(file2)
 
 	// Читаем первую строку, содержащую количество элементов
-	scanner.Scan()
-	numElements, err := strconv.Atoi(scanner.Text())
+	scanner2.Scan()
+	numElements, err := strconv.Atoi(scanner2.Text())
 	if err != nil {
 		numElements = 0
 	}
@@ -80,8 +107,8 @@ func main() {
 
 	// Читаем остальные строки и добавляем их в мапу
 	for i := 0; i < numElements; i++ {
-		scanner.Scan()
-		line := strings.Split(scanner.Text(), " ")
+		scanner2.Scan()
+		line := strings.Split(scanner2.Text(), " ")
 		date := line[0]
 		offset, err := strconv.ParseInt(line[1], 10, 64)
 		if err != nil {
@@ -122,8 +149,8 @@ func writeOffsetMapToFile() error {
 	return nil
 }
 
+// Функция парсинга одной записи
 func parseLine(offset int64) (SpeedDataOffset, error) {
-	// Open the file
 	filename := fmt.Sprintf("%s/data.txt", dataDirectory)
 	file, err := os.Open(filename)
 	if err != nil {
@@ -131,22 +158,18 @@ func parseLine(offset int64) (SpeedDataOffset, error) {
 	}
 	defer file.Close()
 
-	// Set the read/write position to the specified offset
 	_, err = file.Seek(offset, 0)
 	if err != nil {
 		return SpeedDataOffset{}, err
 	}
 
-	// Create a new reader that reads from the file
 	reader := bufio.NewReader(file)
 
-	// Read a single line of data
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return SpeedDataOffset{}, err
 	}
 
-	// Parse the line of data into a SpeedData struct
 	var data SpeedDataOffset
 	lineData := strings.Split(line, " ")
 	data.DateTime = lineData[0] + " " + lineData[1]
@@ -234,6 +257,7 @@ func queryHandler(w http.ResponseWriter, r *http.Request) {
 			for offset != -1 {
 				line, _ := parseLine(offset)
 				offset = line.Offset
+				// Запрос 2.1
 				if line.SpeedKmph > speed {
 					responses = append(responses, SpeedQueryResponse{line.DateTime, line.NumberPlate, line.SpeedKmph})
 				}
