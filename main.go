@@ -2,14 +2,17 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -44,6 +47,8 @@ var accessEndTime time.Time
 var offset_map map[string]int64
 
 func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
 
 	// Парсим время работы машины
 	file, err := os.Open("config.txt")
@@ -121,7 +126,26 @@ func main() {
 	// Стартуем наш сервер
 	http.HandleFunc("/receive", receiveHandler)
 	http.HandleFunc("/query", queryHandler)
-	http.ListenAndServe(":8080", nil)
+
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: nil,
+	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Println(err)
+		}
+	}()
+
+	<-ctx.Done()
+
+	writeOffsetMapToFile()
+
+
+	if err := server.Shutdown(context.Background()); err != nil {
+		fmt.Println(err)
+	}
 }
 
 func writeOffsetMapToFile() error {
@@ -224,7 +248,6 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	writeOffsetMapToFile()
 	// Возвращаем успешный ответ
 	fmt.Fprintf(w, "Received data: %+v\n", data)
 }
