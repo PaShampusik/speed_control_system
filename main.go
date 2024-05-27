@@ -90,6 +90,15 @@ func main() {
 
 	// Открываем файл
 	filename := fmt.Sprintf("%s/map.txt", dataDirectory)
+
+	// Проверяем, существует ли файл, иначе создаем его
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		err = os.WriteFile(filename, []byte{}, 0644)
+		if err != nil {
+			return
+		}
+	}
+
 	file2, err := os.Open(filename)
 	if err != nil {
 		fmt.Println(err)
@@ -141,7 +150,6 @@ func main() {
 	<-ctx.Done()
 
 	writeOffsetMapToFile()
-
 
 	if err := server.Shutdown(context.Background()); err != nil {
 		fmt.Println(err)
@@ -301,7 +309,8 @@ func queryHandler(w http.ResponseWriter, r *http.Request) {
 					maxSpeed = line.SpeedKmph
 					maxDate = line.DateTime
 					maxPlate = line.NumberPlate
-				} else if line.SpeedKmph < minSpeed {
+				}
+				if line.SpeedKmph < minSpeed {
 					minSpeed = line.SpeedKmph
 					minDate = line.DateTime
 					minPlate = line.NumberPlate
